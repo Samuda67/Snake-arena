@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Snake Arena</title>
+<style>
+*{box-sizing:border-box} body{margin:0;font-family:Arial,sans-serif;min-height:100vh;display:flex;justify-content:center;align-items:center;
+background:linear-gradient(135deg,#101820,#203a43);transition:background 1s;color:white;overflow-x:hidden}
+.app{width:100%;max-width:1180px;text-align:center;padding:14px}.screen{display:none}.screen.active{display:block}
+.card{background:rgba(0,0,0,.55);padding:22px;border-radius:18px;box-shadow:0 8px 30px #0008}
+h1{font-size:42px;margin:5px}.subtitle{opacity:.8;margin-bottom:18px}
+button{border:0;border-radius:10px;padding:11px 18px;margin:5px;font-size:17px;cursor:pointer;background:#eee;color:#111}
+button:hover{transform:scale(1.03)}button.selected{outline:3px solid #ffd600}
+.modes button{min-width:120px}.skins{display:flex;flex-wrap:wrap;justify-content:center;gap:8px}
+.skin{width:105px;padding:12px 5px}.skin.locked{opacity:.45}
+.swatch{height:30px;border-radius:8px;margin-bottom:6px}
+.green{background:#39d353}.blue{background:#3498db}.purple{background:#9b59b6}.pink{background:#ff69b4}.gold{background:#ffd700}
+.red{background:#e74c3c}.cyan{background:#00d9ff}
+.stats{display:flex;justify-content:space-around;font-size:18px;margin:10px}
+canvas{display:block;margin:8px auto;background:#0b1116;border:3px solid #ffffff;border-radius:12px;
+width:min(82vw, calc(100vh - 270px), 760px);height:min(82vw, calc(100vh - 270px), 760px);
+max-width:760px;max-height:calc(100vh - 270px);box-shadow:0 12px 35px #0009;image-rendering:auto}
+.controls{width:230px;margin:auto;display:grid;grid-template-columns:repeat(3,1fr)}
+.empty{visibility:hidden}.danger{color:#ff7777}
+#pause{position:fixed;inset:0;background:#000b;display:none;align-items:center;justify-content:center;z-index:10}
+#pause.show{display:flex}#pause div{font-size:54px;font-weight:bold}
+.small{font-size:13px;opacity:.7}
+.panel{background:#0b1219dd;border:1px solid #ffffff1c;border-radius:14px;padding:14px;margin-top:12px}
+.row{display:flex;gap:10px;justify-content:center;align-items:center;flex-wrap:wrap}
+.setting{display:grid;grid-template-columns:150px minmax(140px,300px) 55px;gap:10px;align-items:center;justify-content:center;margin:10px}
+input[type=range]{width:100%}
+.rankBadge{display:inline-block;padding:6px 12px;border-radius:999px;background:#ffffff14;font-weight:bold}
+#tutorialOverlay,#settingsOverlay{position:fixed;inset:0;background:#000b;display:none;align-items:center;justify-content:center;z-index:30;padding:18px}
+#tutorialOverlay.show,#settingsOverlay.show{display:flex}
+.modal{width:min(620px,94vw);max-height:90vh;overflow:auto;background:#101820;border:1px solid #ffffff22;border-radius:20px;padding:24px;box-shadow:0 20px 60px #000c;text-align:left}
+.modal h2{text-align:center}
+.tutorialStep{display:none}.tutorialStep.active{display:block}
+.tutorialDots{text-align:center;margin:12px}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#555;margin:3px}.dot.active{background:#fff}
+#gameScreen.active{width:100vw;height:100vh;overflow:hidden}
+#gameScreen.active .card{height:100vh;min-height:0;border-radius:0;padding:8px 10px;display:flex;flex-direction:column;align-items:center;overflow:hidden}
+#gameScreen canvas{width:min(88vw,calc(100vh - 255px),900px);height:min(88vw,calc(100vh - 255px),900px);max-width:900px;max-height:calc(100vh - 255px)}
+@media(max-width:700px){
+ .app{padding:6px}.card{padding:14px}.stats{font-size:15px}.controls{width:210px}
+ #gameScreen canvas{width:min(94vw,calc(100vh - 245px));height:min(94vw,calc(100vh - 245px));}
+}
+@media(min-width:1200px){
+ #gameScreen canvas{width:min(82vh,900px);height:min(82vh,900px)}
+}
+#gameScreen.active{width:100vw;height:100vh;overflow:hidden}
+#gameScreen.active .card{height:100vh;min-height:0;border-radius:0;padding:8px 10px;display:flex;flex-direction:column;align-items:center;overflow:hidden}
+#gameScreen h2{margin:2px 0 3px}
+#gameScreen .stats{margin:4px}
+#gameScreen .controls{margin-top:3px}
+#gameScreen .small{margin:2px}
+:fullscreen #gameScreen{width:100vw;height:100vh;overflow:hidden}
+:fullscreen #gameScreen .card{height:100vh;padding:6px}
+:fullscreen canvas{width:min(88vw,calc(100vh - 230px),900px);height:min(88vw,calc(100vh - 230px),900px);max-height:calc(100vh - 230px)}
+@media(max-width:600px){h1{font-size:32px}.stats{font-size:16px}.controls{width:210px}}
+@media(max-height:700px){canvas{width:min(78vw,calc(100vh - 245px),620px);height:min(78vw,calc(100vh - 245px),620px);max-height:calc(100vh - 245px)}}
+</style>
+</head>
+<body>
+<div class="app">
+
+<section id="lobby" class="screen active">
+<div class="card">
+<h1>🐍 SNAKE ARENA</h1><div class="subtitle">Välj hur du vill spela</div>
+<div class="modes">
+<button id="normalBtn" onclick="chooseMode('normal')">Classic</button>
+<button id="careerBtn" onclick="chooseMode('career')">Career</button>
+<button id="rankedBtn" onclick="chooseMode('ranked')">Ranked</button>
+</div>
+<div class="row">
+  <div id="leaderboardButtonWrap" style="display:none"><button onclick="showLeaderboard()">🏆 Leaderboards</button></div>
+  <button onclick="showTutorial()">📘 Tutorial</button>
+  <button onclick="showSettings()">⚙️ Settings</button>
+</div>
+<div id="rankPanel" class="panel"></div>
+<div id="leaderboardPanel" style="display:none;margin-top:15px"></div>
+<h2>Skins</h2><div id="skins" class="skins"></div>
+<p id="careerInfo"></p>
+<button onclick="startGame()">▶ Starta</button>
+<p class="small">Ranked har små RP-förluster vid dåliga rundor. Unreal kräver topp 500 den aktuella veckan. Den globala topplistan kräver en online-server.</p>
+</div>
+</section>
+
+<section id="gameScreen" class="screen">
+<div class="card">
+<h2>🐍 Snake <span id="modeName"></span></h2><button onclick="toggleFullscreen()">⛶ Helskärm</button>
+<div class="stats">
+<span>Poäng: <b id="score">0</b></span>
+<span id="highWrap">🏆 High Score: <b id="high">0</b></span>
+<span id="rankInGame">🏅 Bronze • 0 RP</span>
+</div>
+<canvas id="game" width="420" height="420"></canvas>
+<div id="message"></div>
+<div class="small" id="controllerStatus">🎮 Kontroll: ingen ansluten</div>
+<button onclick="backLobby()">🏠 Lobby</button><button onclick="restart()">🔄 Starta om</button>
+<div class="controls" aria-label="Touch controls">
+<button class="empty">.</button><button onclick="setDir(0,-1)">⬆️</button><button class="empty">.</button>
+<button onclick="setDir(-1,0)">⬅️</button><button onclick="setDir(0,1)">⬇️</button><button onclick="setDir(1,0)">➡️</button>
+</div>
+<div class="small">Tangentbord: WASD/pilar • Xbox/PS5: styrkors eller vänsterspak</div>
+</div>
+</section>
+</div>
+
+<div id="pause"><div>⏸ PAUSED</div></div>
+
+<div id="tutorialOverlay">
+  <div class="modal">
+    <h2>📘 Så spelar du</h2>
+    <div id="tutorial1" class="tutorialStep active">
+      <h3>1. Styr ormen</h3>
+      <p>Ät maten och väx genom att styra med piltangenter, WASD, touch-knappar eller en Xbox/PS5-kontroll.</p>
+    </div>
+    <div id="tutorial2" class="tutorialStep">
+      <h3>2. Välj läge</h3>
+      <p><b>Classic</b> = slå High Score. <b>Career</b> = klara mål och lås upp skins. <b>Ranked</b> = samla RP och klättra i rank.</p>
+    </div>
+    <div id="tutorial3" class="tutorialStep">
+      <h3>3. Undvik väggen och dig själv</h3>
+      <p>Om huvudet träffar väggen eller kroppen är rundan slut. I Ranked går spelet lite snabbare.</p>
+    </div>
+    <div id="tutorial4" class="tutorialStep">
+      <h3>4. Skins</h3>
+      <p>Skins låses bara upp i Career och kräver mycket mer Career-poäng än tidigare.</p>
+    </div>
+    <div class="tutorialDots">
+      <span class="dot active"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span>
+    </div>
+    <div class="row">
+      <button id="tutorialPrev" onclick="tutorialMove(-1)">← Tillbaka</button>
+      <button id="tutorialNext" onclick="tutorialMove(1)">Nästa →</button>
+      <button onclick="closeTutorial()">Stäng</button>
+    </div>
+  </div>
+</div>
+
+<div id="settingsOverlay">
+  <div class="modal">
+    <h2>⚙️ Settings</h2>
+    <div class="setting"><label>Speluppdatering</label><input id="tickSetting" type="range" min="75" max="150" step="5"><b id="tickValue"></b></div>
+    <p class="small">Lägre millisekunder = snabbare uppdatering. Ranked är alltid lite snabbare än din Classic-inställning.</p>
+    <div class="setting"><label>Stäng av vibration</label><input id="vibrationSetting" type="checkbox"><span></span></div>
+    <div class="row"><button onclick="saveSettings()">Spara</button><button onclick="closeSettings()">Stäng</button></div>
+  </div>
+</div>
+
+
+<script>
+const c=document.getElementById("game"),ctx=c.getContext("2d");
+const GRID=21,CELL=20;
+let mode="normal", selectedSkin="green", score=0;
+let high=Number(localStorage.getItem("snakeHigh")||0);
+let careerBest=Number(localStorage.getItem("careerBest")||0);
+let unlocked=JSON.parse(localStorage.getItem("snakeSkins")||'["green"]');
+let snake=[],food=null,dir={x:1,y:0},nextDir={x:1,y:0},dead=false,timer=null,paused=false,level=1;
+let bg=0, gamepadTimer=null, lastPadDir="", tutorialIndex=0;
+let tickSetting=Number(localStorage.getItem("snakeTick")||105);
+let vibrationOff=localStorage.getItem("snakeVibrationOff")==="1";
+let rankedRP=Number(localStorage.getItem("snakeRankedRP")||0);
+let rankedScores=JSON.parse(localStorage.getItem("snakeRankedScores")||"[]");
+let weeklyScores=JSON.parse(localStorage.getItem("snakeWeeklyRankedScores")||"[]");
+let rankedMatches=Number(localStorage.getItem("snakeRankedMatches")||0);
+let rankProtection=Number(localStorage.getItem("snakeRankProtection")||2);
+
+const RANKS=[
+ {name:"Unranked",min:0,next:100},
+ {name:"Bronze",min:100,next:300},
+ {name:"Silver",min:300,next:600},
+ {name:"Guld",min:600,next:1000},
+ {name:"Platinum",min:1000,next:1500},
+ {name:"Diamond",min:1500,next:2200},
+ {name:"Elite",min:2200,next:3000},
+ {name:"Champion",min:3000,next:4000},
+ {name:"Unreal",min:4000,next:null},
+ {name:"Unreal",min:999999,next:null}
+];
+
+function currentRank(){
+ if(rankedRP<100)return RANKS[0];
+ if(rankedRP<300)return RANKS[1];
+ if(rankedRP<600)return RANKS[2];
+ if(rankedRP<1000)return RANKS[3];
+ if(rankedRP<1500)return RANKS[4];
+ if(rankedRP<2200)return RANKS[5];
+ if(rankedRP<3000)return RANKS[6];
+ if(rankedRP<4000)return RANKS[7];
+ return isTop500ThisWeek()?RANKS[9]:RANKS[8];
+}
+function weeklyKey(){
+ const d=new Date();
+ const date=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
+ const day=date.getUTCDay()||7;
+ date.setUTCDate(date.getUTCDate()+4-day);
+ const yearStart=new Date(Date.UTC(date.getUTCFullYear(),0,1));
+ const week=Math.ceil((((date-yearStart)/86400000)+1)/7);
+ return date.getUTCFullYear()+"-W"+String(week).padStart(2,"0");
+}
+function isTop500ThisWeek(){
+ const mine=weeklyScores.find(x=>x.me);
+ if(!mine)return false;
+ const sorted=weeklyScores.slice().sort((a,b)=>b.rp-a.rp);
+ const pos=sorted.findIndex(x=>x.me);
+ return weeklyScores.length>=500 && pos>=0&&pos<500;
+}
+function rankHTML(){
+ const r=currentRank();
+ if(r.name==="Unreal"){
+   return `<span class="rankBadge">👑 Unreal</span> <b>${rankedRP} RP</b><br><span class="small">Du är topp 500 denna vecka.</span>`;
+ }
+ if(r.name==="Unreal"){
+   return `<span class="rankBadge">🔥 Unreal</span> <b>${rankedRP} RP</b><br><span class="small">Topp 500 i veckans Ranked krävs för Unreal.</span>`;
+ }
+ const idx=RANKS.findIndex(x=>x.name===r.name);
+ const next=r.next?RANKS[idx+1].name:"";
+ return `<span class="rankBadge">🏅 ${r.name}</span> <b>${rankedRP} RP</b>${next?`<br><span class="small">${r.next-rankedRP} RP till ${next}</span>`:""}`;
+}
+function updateRankUI(){
+ const r=currentRank();
+ document.getElementById("rankPanel").innerHTML=`<div class="panel"><b>🏅 Ranked</b><br>${rankHTML()}<br><span class="small">Unreal kräver topp 500 i veckans Ranked Leaderboard. En svag match, t.ex. 10 poäng, ger en liten RP-förlust i stället för att kasta ner dig långt.</span></div>`;
+ const el=document.getElementById("rankInGame");
+ if(el)el.innerHTML=`🏅 ${r.name} • ${rankedRP} RP`;
+}
+function rankDeltaForScore(s){
+ if(s>=80)return 90;
+ if(s>=60)return 65;
+ if(s>=45)return 45;
+ if(s>=30)return 28;
+ if(s>=20)return 15;
+ if(s>=11)return 3;
+ if(s>=1)return -6;
+ return -10;
+}
+function applyRankResult(){
+ let delta=rankDeltaForScore(score);
+ if(delta<0){
+   if(rankProtection>0){
+     rankProtection--;
+     localStorage.setItem("snakeRankProtection",rankProtection);
+     delta=0;
+   }else delta=Math.max(delta,-18);
+ }
+ rankedRP=Math.max(0,rankedRP+delta);
+ rankedMatches++;
+ localStorage.setItem("snakeRankedRP",rankedRP);
+ localStorage.setItem("snakeRankedMatches",rankedMatches);
+
+ const wk=weeklyKey();
+ weeklyScores=weeklyScores.filter(x=>x.week===wk && !x.me);
+ weeklyScores.push({me:true,week:wk,rp:rankedRP});
+ weeklyScores.sort((a,b)=>b.rp-a.rp);
+ weeklyScores=weeklyScores.slice(0,1000);
+ localStorage.setItem("snakeWeeklyRankedScores",JSON.stringify(weeklyScores));
+ return delta;
+}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));}
+function saveRankedScore(){
+ if(score<=0)return;
+ const delta=applyRankResult();
+ const entered=prompt("Skriv ditt namn för Ranked-leaderboard:");
+ const name=(entered||"Player").trim().slice(0,16)||"Player";
+ rankedScores.push({name,score,week:weeklyKey(),rp:rankedRP});
+ rankedScores.sort((a,b)=>b.score-a.score);
+ rankedScores=rankedScores.slice(0,10);
+ localStorage.setItem("snakeRankedScores",JSON.stringify(rankedScores));
+ document.getElementById("message").innerHTML=`<b>${delta>=0?"+":""}${delta} RP</b> • ${currentRank().name}`;
+ updateRankUI();
+}
+function showLeaderboard(){
+ const panel=document.getElementById("leaderboardPanel");
+ if(panel.style.display!=="none"){panel.style.display="none";panel.innerHTML="";return}
+ const rows=rankedScores.length?rankedScores.map((x,i)=>`<div style="display:flex;justify-content:space-between;padding:7px;border-bottom:1px solid #ffffff22"><span>${i+1}. ${escapeHtml(x.name)}</span><b>${x.score}</b></div>`).join(""):"<p>Inga Ranked-resultat ännu.</p>";
+ panel.innerHTML=`<div class="panel"><h2>🏆 Ranked Leaderboard — denna vecka</h2>${rows}<p>🔥 <b>Unreal:</b> du måste vara <b>topp 500 i Ranked Leaderboard under den aktuella veckan.</b></p><p class="small">Den här versionen sparar leaderboard lokalt. En riktig global topp 500 kräver en online-server.</p></div>`;
+ panel.style.display="block";
+}
+function closeLeaderboard(){const p=document.getElementById("leaderboardPanel");p.style.display="none";p.innerHTML=""}
+
+function renderLobby(){
+ closeLeaderboard();
+ document.querySelectorAll(".modes button").forEach(b=>b.classList.remove("selected"));
+ document.getElementById(mode+"Btn").classList.add("selected");
+ document.getElementById("leaderboardButtonWrap").style.display=mode==="ranked"?"block":"none";
+ const box=document.getElementById("skins");box.innerHTML="";
+ Object.keys(skins).forEach(id=>{
+   const s=skins[id],ok=unlocked.includes(id),b=document.createElement("button");
+   b.className="skin "+(ok?"":"locked")+(selectedSkin===id?" selected":"");
+   b.disabled=!ok;
+   b.innerHTML=`<div class="swatch" style="background:${s.color}"></div>${s.name}${ok?"":` 🔒<br><span class="small">${s.need} Career</span>`}`;
+   b.onclick=()=>{selectedSkin=id;renderLobby()};
+   box.appendChild(b);
+ });
+ document.getElementById("careerInfo").textContent=mode==="career"?
+ "Career: skins kräver 30 / 60 / 100 / 150 / 225 / 300 Career-poäng.":
+ mode==="ranked"?"Ranked: Unranked → Bronze → Silver → Guld → Platinum → Diamond → Elite → Champion → Unreal → Unreal. Ranked är lite snabbare.":
+ "Classic: spela fritt och slå ditt High Score.";
+ updateRankUI();
+}
+function chooseMode(m){mode=m;renderLobby()}
+function startGame(){
+ document.getElementById("lobby").classList.remove("active");
+ document.getElementById("gameScreen").classList.add("active");
+ document.getElementById("modeName").textContent=mode==="career"?"• CAREER":mode==="ranked"?"• RANKED":"• CLASSIC";
+ document.getElementById("highWrap").style.display=mode==="career"?"none":"inline";
+ restart();
+}
+function backLobby(){
+ clearInterval(timer);
+ document.getElementById("gameScreen").classList.remove("active");
+ document.getElementById("lobby").classList.add("active");
+ renderLobby();
+}
+function spawnFood(){
+ let f;
+ do{f={x:Math.floor(Math.random()*GRID),y:Math.floor(Math.random()*GRID)}}while(snake.some(s=>s.x===f.x&&s.y===f.y));
+ return f;
+}
+function restart(){
+ clearInterval(timer);
+ bg=(bg+1)%backgrounds.length;document.body.style.background=backgrounds[bg];
+ snake=[{x:10,y:10},{x:9,y:10},{x:8,y:10}];food=spawnFood();
+ dir={x:1,y:0};nextDir={x:1,y:0};score=0;dead=false;paused=false;
+ document.getElementById("pause").classList.remove("show");document.getElementById("message").textContent="";
+ document.getElementById("score").textContent="0";document.getElementById("high").textContent=high;
+ document.getElementById("highWrap").style.display=mode==="career"?"none":"inline";
+ updateRankUI();
+ const ms=mode==="ranked"?Math.max(55,tickSetting-15):tickSetting;
+ timer=setInterval(step,ms);draw();startGamepadPolling();
+}
+function setDir(x,y){
+ if(dead||paused)return;
+ if(x===-dir.x&&y===-dir.y)return;
+ if(x===-nextDir.x&&y===-nextDir.y)return;
+ nextDir={x,y};
+}
+function step(){
+ if(dead||paused)return;
+ dir=nextDir;
+ const head={x:snake[0].x+dir.x,y:snake[0].y+dir.y};
+ // Allow moving into the tail's old square when the tail will move away.
+ const willEat=head.x===food.x&&head.y===food.y;
+ const bodyToCheck=willEat?snake:snake.slice(0,-1);
+ if(head.x<0||head.y<0||head.x>=GRID||head.y>=GRID||bodyToCheck.some(s=>s.x===head.x&&s.y===head.y)){
+   dead=true;clearInterval(timer);
+   if(mode==="ranked")saveRankedScore();
+   bg=(bg+1)%backgrounds.length;document.body.style.background=backgrounds[bg];
+   document.getElementById("message").innerHTML='<span class="danger">GAME OVER — tryck Starta om</span>';
+   if(!vibrationOff && navigator.vibrate)navigator.vibrate([80,40,80]);
+   draw();return;
+ }
+ snake.unshift(head);
+ if(willEat){
+   score++;document.getElementById("score").textContent=score;
+   if(mode!=="career"&&score>high){high=score;localStorage.setItem("snakeHigh",high);document.getElementById("high").textContent=high}
+   if(mode==="career"){
+     level=Math.floor(score/10)+1;
+     careerBest=Math.max(careerBest,score);localStorage.setItem("careerBest",careerBest);
+     unlockCareer();
+   }
+   food=spawnFood();
+   if(score%5===0){bg=(bg+1)%backgrounds.length;document.body.style.background=backgrounds[bg]}
+ }else snake.pop();
+ draw();
+}
+function unlockCareer(){
+ if(mode!=="career")return;
+ const order=["green","blue","purple","pink","gold","red","cyan"];
+ order.forEach(id=>{
+   if(skins[id].need>0 && score>=skins[id].need && !unlocked.includes(id)){
+     unlocked.push(id);localStorage.setItem("snakeSkins",JSON.stringify(unlocked));
+     document.getElementById("message").textContent="🔓 Ny skin upplåst: "+skins[id].name+"!";
+   }
+ });
+}
+function roundRect(x,y,w,h,r){
+ ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();
+}
+function draw(){
+ const g=ctx.createLinearGradient(0,0,420,420);g.addColorStop(0,"#18232c");g.addColorStop(.5,"#101a20");g.addColorStop(1,"#0b1217");
+ ctx.fillStyle=g;ctx.fillRect(0,0,420,420);
+ const fx=food.x*CELL+10,fy=food.y*CELL+10;
+ const glow=ctx.createRadialGradient(fx,fy,1,fx,fy,14);glow.addColorStop(0,"#fff");glow.addColorStop(.25,"#ff6b6b");glow.addColorStop(1,"#e5393500");
+ ctx.fillStyle=glow;ctx.fillRect(fx-15,fy-15,30,30);
+ ctx.fillStyle="#e53935";roundRect(food.x*CELL+4,food.y*CELL+4,12,12,4);ctx.fill();
+ ctx.fillStyle="#ffb0b0";ctx.fillRect(food.x*CELL+7,food.y*CELL+6,3,3);
+ const color=skins[selectedSkin].color;
+ snake.forEach((s,i)=>{
+   const x=s.x*CELL+2,y=s.y*CELL+2,w=16;
+   ctx.fillStyle="#0007";roundRect(x+1,y+2,w,w,5);ctx.fill();
+   const shade=ctx.createLinearGradient(x,y,x+w,y+w);shade.addColorStop(0,i===0?"#fff":color);shade.addColorStop(1,i===0?"#b9c6cf":color);
+   ctx.fillStyle=shade;roundRect(x,y,w,w,5);ctx.fill();
+   if(i===0){ctx.fillStyle="#15202a";ctx.beginPath();ctx.arc(x+5,y+5,2,0,Math.PI*2);ctx.arc(x+11,y+5,2,0,Math.PI*2);ctx.fill();}
+ });
+ if(dead){ctx.fillStyle="#0009";ctx.fillRect(0,0,420,420);ctx.fillStyle="white";ctx.textAlign="center";ctx.font="bold 30px Arial";ctx.fillText("GAME OVER",210,190);ctx.font="16px Arial";ctx.fillText("Tryck på Starta om",210,218);}
+}
+
+document.addEventListener("keydown",e=>{
+ const k=e.key;
+ if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"," "].includes(k))e.preventDefault();
+ if(k==="ArrowUp"||k==="w"||k==="W")setDir(0,-1);
+ else if(k==="ArrowDown"||k==="s"||k==="S")setDir(0,1);
+ else if(k==="ArrowLeft"||k==="a"||k==="A")setDir(-1,0);
+ else if(k==="ArrowRight"||k==="d"||k==="D")setDir(1,0);
+ else if(k===" "&&dead)restart();
+});
+
+// Xbox / PS5 controller support through the browser Gamepad API.
+function startGamepadPolling(){
+ if(gamepadTimer)return;
+ gamepadTimer=setInterval(readGamepad,50);
+}
+function readGamepad(){
+ const pads=navigator.getGamepads?navigator.getGamepads():[];
+ const p=[...pads].find(Boolean);
+ const status=document.getElementById("controllerStatus");
+ if(!p){status.textContent="🎮 Kontroll: ingen ansluten";lastPadDir="";return}
+ status.textContent=`🎮 Kontroll: ${p.id.slice(0,34)}`;
+ let x=0,y=0;
+ if(p.axes&&p.axes.length>=2){
+   x=Math.abs(p.axes[0])>.5?p.axes[0]:0;y=Math.abs(p.axes[1])>.5?p.axes[1]:0;
+ }
+ if(x===0&&y===0&&p.buttons){
+   if(p.buttons[12]?.pressed)y=-1;
+   else if(p.buttons[13]?.pressed)y=1;
+   else if(p.buttons[14]?.pressed)x=-1;
+   else if(p.buttons[15]?.pressed)x=1;
+ }
+ let d="";
+ if(Math.abs(x)>Math.abs(y)&&x!==0)d=x>0?"R":"L";
+ else if(y!==0)d=y>0?"D":"U";
+ if(d&&d!==lastPadDir){
+   if(d==="U")setDir(0,-1);if(d==="D")setDir(0,1);if(d==="L")setDir(-1,0);if(d==="R")setDir(1,0);
+ }
+ if(!d)lastPadDir="";
+ else lastPadDir=d;
+}
+window.addEventListener("gamepadconnected",e=>{
+ document.getElementById("controllerStatus").textContent=`🎮 Kontroll ansluten: ${e.gamepad.id.slice(0,34)}`;
+ startGamepadPolling();
+});
+window.addEventListener("gamepaddisconnected",()=>{
+ document.getElementById("controllerStatus").textContent="🎮 Kontroll: ingen ansluten";
+ lastPadDir="";
+});
+
+function showTutorial(){
+ tutorialIndex=0;renderTutorial();document.getElementById("tutorialOverlay").classList.add("show");
+}
+function closeTutorial(){document.getElementById("tutorialOverlay").classList.remove("show")}
+function renderTutorial(){
+ for(let i=1;i<=4;i++)document.getElementById("tutorial"+i).classList.toggle("active",i===tutorialIndex+1);
+ document.querySelectorAll(".dot").forEach((d,i)=>d.classList.toggle("active",i===tutorialIndex));
+ document.getElementById("tutorialPrev").disabled=tutorialIndex===0;
+ document.getElementById("tutorialNext").textContent=tutorialIndex===3?"Klar ✓":"Nästa →";
+}
+function tutorialMove(n){
+ tutorialIndex+=n;
+ if(tutorialIndex>3){closeTutorial();return}
+ tutorialIndex=Math.max(0,tutorialIndex);renderTutorial();
+}
+
+function showSettings(){
+ document.getElementById("tickSetting").value=tickSetting;
+ document.getElementById("tickValue").textContent=tickSetting+" ms";
+ document.getElementById("vibrationSetting").checked=vibrationOff;
+ document.getElementById("settingsOverlay").classList.add("show");
+}
+function closeSettings(){document.getElementById("settingsOverlay").classList.remove("show")}
+document.getElementById("tickSetting").addEventListener("input",e=>document.getElementById("tickValue").textContent=e.target.value+" ms");
+function saveSettings(){
+ tickSetting=Number(document.getElementById("tickSetting").value);
+ vibrationOff=document.getElementById("vibrationSetting").checked;
+ localStorage.setItem("snakeTick",tickSetting);
+ localStorage.setItem("snakeVibrationOff",vibrationOff?"1":"0");
+ closeSettings();
+ if(document.getElementById("gameScreen").classList.contains("active")&&!dead){
+   clearInterval(timer);
+   const ms=mode==="ranked"?Math.max(55,tickSetting-15):tickSetting;
+   timer=setInterval(step,ms);
+ }
+}
+
+document.addEventListener("visibilitychange",()=>{
+ if(document.hidden&&!dead&&document.getElementById("gameScreen").classList.contains("active")){
+   paused=true;document.getElementById("pause").classList.add("show");
+ }else if(!document.hidden&&paused){
+   paused=false;document.getElementById("pause").classList.remove("show");
+ }
+});
+function toggleFullscreen(){
+ const target=document.getElementById("gameScreen");
+ if(!document.fullscreenElement&&target.requestFullscreen)target.requestFullscreen();
+ else if(document.exitFullscreen)document.exitFullscreen();
+}
+document.addEventListener("fullscreenchange",()=>{
+ const btn=document.querySelector('#gameScreen button[onclick="toggleFullscreen()"]');
+ if(btn)btn.textContent=document.fullscreenElement?"⛶ Avsluta helskärm":"⛶ Helskärm";
+});
+
+renderLobby();document.body.style.background=backgrounds[0];
+if(!localStorage.getItem("snakeTutorialSeen")){
+ setTimeout(showTutorial,350);
+ localStorage.setItem("snakeTutorialSeen","1");
+}
+</script>
+
+</body>
+</html>

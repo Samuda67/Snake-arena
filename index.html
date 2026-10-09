@@ -82,7 +82,7 @@ input[type=range]{width:100%}
 <h2>Skins</h2><div id="skins" class="skins"></div>
 <p id="careerInfo"></p>
 <button onclick="startGame()">▶ Starta</button>
-<p class="small">Ranked har små RP-förluster vid dåliga rundor. Unreal kräver topp 500 den aktuella veckan. Den globala topplistan kräver en online-server.</p>
+<p class="small">Ranked har små RP-förluster vid dåliga rundor. Unreal kräver 4000 RP och global topp 500. Global placering kan inte verifieras utan online-server.</p>
 </div>
 </section>
 
@@ -92,17 +92,16 @@ input[type=range]{width:100%}
 <div class="stats">
 <span>Poäng: <b id="score">0</b></span>
 <span id="highWrap">🏆 High Score: <b id="high">0</b></span>
-<span id="rankInGame">🏅 Bronze • 0 RP</span>
+<span id="rankInGame" style="display:none">🏅 Bronze • 0 RP</span>
 </div>
 <canvas id="game" width="420" height="420"></canvas>
 <div id="message"></div>
-<div class="small" id="controllerStatus">🎮 Kontroll: ingen ansluten</div>
 <button onclick="backLobby()">🏠 Lobby</button><button onclick="restart()">🔄 Starta om</button>
 <div class="controls" aria-label="Touch controls">
 <button class="empty">.</button><button onclick="setDir(0,-1)">⬆️</button><button class="empty">.</button>
 <button onclick="setDir(-1,0)">⬅️</button><button onclick="setDir(0,1)">⬇️</button><button onclick="setDir(1,0)">➡️</button>
 </div>
-<div class="small">Tangentbord: WASD/pilar • Xbox/PS5: styrkors eller vänsterspak</div>
+<div class="small">Styr med piltangenter, WASD eller knapparna på skärmen.</div>
 </div>
 </section>
 </div>
@@ -114,7 +113,7 @@ input[type=range]{width:100%}
     <h2>📘 Så spelar du</h2>
     <div id="tutorial1" class="tutorialStep active">
       <h3>1. Styr ormen</h3>
-      <p>Ät maten och väx genom att styra med piltangenter, WASD, touch-knappar eller en Xbox/PS5-kontroll.</p>
+      <p>Ät maten och väx genom att styra med piltangenter, WASD eller touch-knapparna på skärmen.</p>
     </div>
     <div id="tutorial2" class="tutorialStep">
       <h3>2. Välj läge</h3>
@@ -158,7 +157,7 @@ let high=Number(localStorage.getItem("snakeHigh")||0);
 let careerBest=Number(localStorage.getItem("careerBest")||0);
 let unlocked=JSON.parse(localStorage.getItem("snakeSkins")||'["green"]');
 let snake=[],food=null,dir={x:1,y:0},nextDir={x:1,y:0},dead=false,timer=null,paused=false,level=1;
-let bg=0, gamepadTimer=null, lastPadDir="", tutorialIndex=0;
+let bg=0, tutorialIndex=0;
 let tickSetting=Number(localStorage.getItem("snakeTick")||105);
 let vibrationOff=localStorage.getItem("snakeVibrationOff")==="1";
 let rankedRP=Number(localStorage.getItem("snakeRankedRP")||0);
@@ -166,6 +165,8 @@ let rankedScores=JSON.parse(localStorage.getItem("snakeRankedScores")||"[]");
 let weeklyScores=JSON.parse(localStorage.getItem("snakeWeeklyRankedScores")||"[]");
 let rankedMatches=Number(localStorage.getItem("snakeRankedMatches")||0);
 let rankProtection=Number(localStorage.getItem("snakeRankProtection")||2);
+const skins={green:{name:"Green",color:"#39d353",need:0},blue:{name:"Blue",color:"#3498db",need:30},purple:{name:"Purple",color:"#9b59b6",need:60},pink:{name:"Pink",color:"#ff69b4",need:100},gold:{name:"Gold",color:"#ffd700",need:150},red:{name:"Red",color:"#e74c3c",need:225},cyan:{name:"Cyan",color:"#00d9ff",need:300}};
+const backgrounds=["linear-gradient(135deg,#101820,#203a43)","linear-gradient(135deg,#101820,#263238)","linear-gradient(135deg,#111827,#312e81)","linear-gradient(135deg,#102a24,#1d4d3a)"];
 
 const RANKS=[
  {name:"Unranked",min:0,next:100},
@@ -176,8 +177,7 @@ const RANKS=[
  {name:"Diamond",min:1500,next:2200},
  {name:"Elite",min:2200,next:3000},
  {name:"Champion",min:3000,next:4000},
- {name:"Unreal",min:4000,next:null},
- {name:"Unreal",min:999999,next:null}
+ {name:"Unreal",min:4000,next:null}
 ];
 
 function currentRank(){
@@ -189,7 +189,7 @@ function currentRank(){
  if(rankedRP<2200)return RANKS[5];
  if(rankedRP<3000)return RANKS[6];
  if(rankedRP<4000)return RANKS[7];
- return isTop500ThisWeek()?RANKS[9]:RANKS[8];
+ return isTop500ThisWeek()?RANKS[8]:RANKS[7];
 }
 function weeklyKey(){
  const d=new Date();
@@ -209,21 +209,17 @@ function isTop500ThisWeek(){
 }
 function rankHTML(){
  const r=currentRank();
- if(r.name==="Unreal"){
-   return `<span class="rankBadge">👑 Unreal</span> <b>${rankedRP} RP</b><br><span class="small">Du är topp 500 denna vecka.</span>`;
- }
- if(r.name==="Unreal"){
-   return `<span class="rankBadge">🔥 Unreal</span> <b>${rankedRP} RP</b><br><span class="small">Topp 500 i veckans Ranked krävs för Unreal.</span>`;
- }
+ if(r.name==="Unreal")return `<span class="rankBadge">👑 Unreal</span> <b>${rankedRP} RP</b><br><span class="small">Global topp 500 kan inte verifieras utan online-server.</span>`;
+ if(r.name==="Champion"&&rankedRP>=4000)return `<span class="rankBadge">🔥 Champion</span> <b>${rankedRP} RP</b><br><span class="small">4000+ RP nått. Unreal kräver verifierad global topp 500; server saknas.</span>`;
  const idx=RANKS.findIndex(x=>x.name===r.name);
  const next=r.next?RANKS[idx+1].name:"";
  return `<span class="rankBadge">🏅 ${r.name}</span> <b>${rankedRP} RP</b>${next?`<br><span class="small">${r.next-rankedRP} RP till ${next}</span>`:""}`;
 }
 function updateRankUI(){
  const r=currentRank();
- document.getElementById("rankPanel").innerHTML=`<div class="panel"><b>🏅 Ranked</b><br>${rankHTML()}<br><span class="small">Unreal kräver topp 500 i veckans Ranked Leaderboard. En svag match, t.ex. 10 poäng, ger en liten RP-förlust i stället för att kasta ner dig långt.</span></div>`;
+ document.getElementById("rankPanel").innerHTML=`<div class="panel"><b>🏅 Ranked</b><br>${rankHTML()}<br><span class="small">Unreal kräver 4000 RP och verifierad global topp 500. Den här versionen saknar online-server, så den kan inte kontrollera global placering. En svag match ger en liten RP-förlust.</span></div>`;
  const el=document.getElementById("rankInGame");
- if(el)el.innerHTML=`🏅 ${r.name} • ${rankedRP} RP`;
+ if(el){el.innerHTML=`🏅 ${r.name} • ${rankedRP} RP`;el.style.display=mode==="ranked"?"inline":"none";}
 }
 function rankDeltaForScore(s){
  if(s>=80)return 90;
@@ -281,9 +277,13 @@ function closeLeaderboard(){const p=document.getElementById("leaderboardPanel");
 
 function renderLobby(){
  closeLeaderboard();
+ // Keep the selected mode visually and functionally in sync.
  document.querySelectorAll(".modes button").forEach(b=>b.classList.remove("selected"));
- document.getElementById(mode+"Btn").classList.add("selected");
+ const selectedButton=document.getElementById(({normal:"normalBtn",career:"careerBtn",ranked:"rankedBtn"})[mode] || "normalBtn");
+ if(selectedButton) selectedButton.classList.add("selected");
  document.getElementById("leaderboardButtonWrap").style.display=mode==="ranked"?"block":"none";
+ // Ranked details should not appear while Classic or Career is selected.
+ document.getElementById("rankPanel").style.display=mode==="ranked"?"block":"none";
  const box=document.getElementById("skins");box.innerHTML="";
  Object.keys(skins).forEach(id=>{
    const s=skins[id],ok=unlocked.includes(id),b=document.createElement("button");
@@ -295,12 +295,13 @@ function renderLobby(){
  });
  document.getElementById("careerInfo").textContent=mode==="career"?
  "Career: skins kräver 30 / 60 / 100 / 150 / 225 / 300 Career-poäng.":
- mode==="ranked"?"Ranked: Unranked → Bronze → Silver → Guld → Platinum → Diamond → Elite → Champion → Unreal → Unreal. Ranked är lite snabbare.":
+ mode==="ranked"?"Ranked: Unranked → Bronze → Silver → Guld → Platinum → Diamond → Elite → Champion → Unreal. Ranked är lite snabbare.":
  "Classic: spela fritt och slå ditt High Score.";
  updateRankUI();
 }
 function chooseMode(m){mode=m;renderLobby()}
 function startGame(){
+ if(!["normal","career","ranked"].includes(mode)) mode="normal";
  document.getElementById("lobby").classList.remove("active");
  document.getElementById("gameScreen").classList.add("active");
  document.getElementById("modeName").textContent=mode==="career"?"• CAREER":mode==="ranked"?"• RANKED":"• CLASSIC";
@@ -328,7 +329,7 @@ function restart(){
  document.getElementById("highWrap").style.display=mode==="career"?"none":"inline";
  updateRankUI();
  const ms=mode==="ranked"?Math.max(55,tickSetting-15):tickSetting;
- timer=setInterval(step,ms);draw();startGamepadPolling();
+ timer=setInterval(step,ms);draw();
 }
 function setDir(x,y){
  if(dead||paused)return;
@@ -405,45 +406,6 @@ document.addEventListener("keydown",e=>{
  else if(k==="ArrowLeft"||k==="a"||k==="A")setDir(-1,0);
  else if(k==="ArrowRight"||k==="d"||k==="D")setDir(1,0);
  else if(k===" "&&dead)restart();
-});
-
-// Xbox / PS5 controller support through the browser Gamepad API.
-function startGamepadPolling(){
- if(gamepadTimer)return;
- gamepadTimer=setInterval(readGamepad,50);
-}
-function readGamepad(){
- const pads=navigator.getGamepads?navigator.getGamepads():[];
- const p=[...pads].find(Boolean);
- const status=document.getElementById("controllerStatus");
- if(!p){status.textContent="🎮 Kontroll: ingen ansluten";lastPadDir="";return}
- status.textContent=`🎮 Kontroll: ${p.id.slice(0,34)}`;
- let x=0,y=0;
- if(p.axes&&p.axes.length>=2){
-   x=Math.abs(p.axes[0])>.5?p.axes[0]:0;y=Math.abs(p.axes[1])>.5?p.axes[1]:0;
- }
- if(x===0&&y===0&&p.buttons){
-   if(p.buttons[12]?.pressed)y=-1;
-   else if(p.buttons[13]?.pressed)y=1;
-   else if(p.buttons[14]?.pressed)x=-1;
-   else if(p.buttons[15]?.pressed)x=1;
- }
- let d="";
- if(Math.abs(x)>Math.abs(y)&&x!==0)d=x>0?"R":"L";
- else if(y!==0)d=y>0?"D":"U";
- if(d&&d!==lastPadDir){
-   if(d==="U")setDir(0,-1);if(d==="D")setDir(0,1);if(d==="L")setDir(-1,0);if(d==="R")setDir(1,0);
- }
- if(!d)lastPadDir="";
- else lastPadDir=d;
-}
-window.addEventListener("gamepadconnected",e=>{
- document.getElementById("controllerStatus").textContent=`🎮 Kontroll ansluten: ${e.gamepad.id.slice(0,34)}`;
- startGamepadPolling();
-});
-window.addEventListener("gamepaddisconnected",()=>{
- document.getElementById("controllerStatus").textContent="🎮 Kontroll: ingen ansluten";
- lastPadDir="";
 });
 
 function showTutorial(){
